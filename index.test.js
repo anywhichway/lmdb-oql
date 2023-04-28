@@ -1,5 +1,5 @@
 import {open} from "lmdb";
-import {select,withExtensions} from "./index.js";
+import {withExtensions} from "./index.js";
 
 class Person {
     constructor(props) {
@@ -7,16 +7,14 @@ class Person {
     }
 }
 
-const db = withExtensions(open("test.db",{useVersions:true}),{select});
+const db = withExtensions(open("test.db",{useVersions:true}));
 db.clearSync();
-db.defineSchema(Object);
 db.defineSchema(Person);
-await db.put(null,{message:"goodbye","#":1});
-await db.put(null,{message:"hello","#":2});
+await db.put(null,new Person({name:"joe",age:21,address:{city:"New York",state:"NY"}}));
 await db.put(null,new Person({name:"joe",age:21,address:{city:"New York",state:"NY"}}));
 
 test("select with literal",async () => {
-    const results = [...db.select().from([Person,"P1"],[Person,"P2"]).where({P1: {age:21, name: {P2: {name: (value)=>value}}}})];
+    const results = [...db.select().from([Person,"P1"],[Person,"P2"]).where({P1: {name: {P2: {name: (value)=>value}}, age:21}})];
     expect(results.length).toBe(4)
 })
 test("select with function",async () => {

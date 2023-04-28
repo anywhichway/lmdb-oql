@@ -1,7 +1,7 @@
 {
-  "name": "lmdb-select",
-  "version": "0.0.1",
-  "description": "A high level query mechanism for indexed LMDB databases",
+  "name": "lmdb-oql",
+  "version": "0.1.0",
+  "description": "A high level object query language for indexed LMDB databases",
   "type": "module",
   "main": "index.js",
   "scripts": {
@@ -22,14 +22,16 @@
   "author": "Simon Y. Blackwell",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/anywhichway/lmdb-select/issues"
+    "url": "https://github.com/anywhichway/lmdb-oql/issues"
   },
-  "homepage": "https://github.com/anywhichway/lmdb-select#readme",
+  "homepage": "https://github.com/anywhichway/lmdb-oql#readme",
   "devDependencies": {
     "jest": "^29.5.0",
     "lmdb": "^2.7.11"
   },
   "dependencies": {
-    "lmdb-extend": "^1.2.0"
+    "cxproduct": "^2.1.4",
+    "lmdb-index": "^0.5.0",
+    "lmdb-query": "^1.4.0"
   }
 }
