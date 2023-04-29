@@ -15,7 +15,9 @@ nom install lmdb-oql
 
 ```javascript
 import {open} from "lmdb";
-import {withExtensions} from "lmdb-index";
+import {withExtensions,operators} from "lmdb-index";
+
+const {$gte} = operators;
 
 class Person {
     constructor(config={}) {
@@ -28,17 +30,72 @@ const id = await db.put(null,new Person({name:"bill",age:21}));
 if(id) {
     const person = await db.get(id);
     if(person && person instanceof Person) {
+        // Person {name:"bill",age:21}
         console.log(person)
     }
 }
-console.log([...db.select().from(Person).where({name:"bill"})]);
+// Person [{name:"bill",age:21}]
+console.log([...db.select().from(Person).where({Person:{name:"bill",age:$gte(21)}})]);
 ```
+
+## Operators
+
+Operators take either 0 or 1 argument. If on the left side of a join, there should be 1 argument. On the right side of a join, providing no argument compares the value to the left. Providing 1 argument creates a right outer join where the right side value satisfies the operator.
+
+`$and` - NOT YET IMPLEMENTED
+
+`$or` - NOT YET IMPLEMENTED
+
+`$lt`
+
+`$lte`
+
+`$eq`
+
+`$eeq`
+
+`$neq`
+
+`$gte`
+
+`$gt`
+
+`$between` - NOT YET IMPLEMENTED
+
+`$in` - NOT YET IMPLEMENTED
+
+
+### LMDB Index API
+
+Developers should be familiar wit the behavior of [lmdb-index](https://github.com/anywhichway/lmdb-index), particularly `defineSchema` and `put`, the documentation for which is replicated here:
+
+### async defineSchema(classConstructor,?options={}) - returns boolean
+
+- The key names in the array `options.indexKeys` will be indexed. If no value is provided, all keys will be indexed. If `options.indexKeys` is an empty array, no keys will be indexed.
+- If the property `options.idKey` is provided, its value will be used for unique ids. If `options.idKey` is not provided, the property `#` on instances will be used for unique ids.
+- If the property `options.keyGenerator` is provided, its value should be a function that returns a unique id. If `options.keyGenerator` is not provided, a v4 UUID will be used.
+
+The `options` properties and values are inherited by child schema, i.e. if you define them for `Object`, then you do not need to provide them for other classes.
+
+To index all keys on all objects using UUIDs as ids and `#` as the id key, call `db.defineSchema(Object)`.
+
+### async db.put(key,value,?version,?ifVersion) - returns boolean
+
+Works similar to [lmdb put](https://github.com/kriszyp/lmdb-js#dbputkey-value-version-number-ifversion-number-promiseboolean)
+
+If `value` is an object, it will be indexed by the keys of the object so long as it is an instance of an object controlled by a schema declared with `defineSchema`. To index all keys on all objects, call `db.defineSchema(Object)`. If `key` is `null`, a unique id will be generated and added to the object. See [defineSchema](#async-defineschemaclassconstructor-options) for more information.
+
+If there is a mismatch between the `key` and the `idKey` of the object, an Error will be thrown.
+
+***Note***: For objects to be retrievable using `lmdb-oql`, the assignment of keys to objects ***MUST*** be done by calling `put` with `null or keys ***MUST*** be of the form `<classname>@<unique-identifier>`
 
 # API
 
-`* db.select(?selector:object|function).from(?...classes).where(?conditions:object)`
+`* db.select(?selector:object|function,?{class:constructor}).from(?...classes).where(?conditions:object)` - returns object
 
-A generator function that selects across multiple class types based on a `conditions` object that can contain literals, regular expressions, functions, and joins. The `where` sub-function optimizes the `conditions` and processes the most restrictive criteria first.
+A generator function that selects instances across multiple classes based on a `conditions` object that can contain literals, regular expressions, functions, and joins. The `where` chained function optimizes the `conditions` and processes the most restrictive criteria first.
+
+THe returned value will be a class instance if only one class is provided in `from` and plain object if the selection is done across multiple classes unless a `class` is provided as an option to `select`. The `class` provided to `select` and used in `from` do not have to be declared using `defineSchema`, they will be automatically declared.
 
 `selector(result:object)` - If selector is a function it takes an object representing the joined instances matching the `where` object. It can manipulate the object in any way it wishes. It defaults to `(value) => value`
 
@@ -59,13 +116,13 @@ db.select()
 ```javascript
 db.select()
     .from(Person)
-    .where({Person:{name:(value)=>value==="joe"||undefined}}) // yields the same results
+    .where({Person:{name:(value)=>value==="joe" ? value : undefined}}) // yields the same results
 ```
 
 ```javascript
 db.select()
     .from(Person)
-    .where({Person:{[/name/g]:(value)=>value==="joe"||undefined}}) // yields the same results
+    .where({Person:{[/name/g]:(value)=>value==="joe" ? value : undefined}}) // yields the same results
 ```
 
 ```javascript
@@ -90,34 +147,7 @@ db.select()
 db.select({Person:{name(value,{root}) { delete root.Person;return root.name=value; }}})
     .from(Person)
     .where({name:NOTNULL}) // yields objects of the form {name:<some name>}
-``` 
-
-## Predicates
-
-NOT YET IMPLEMENTED
-
-`$and`
-
-`$or`
-
-`$lt`
-
-`$lte`
-
-`$eq`
-
-`$eeq`
-
-`$neq`
-
-`$gte`
-
-`$gt`
-
-`$between`
-
-`$in`
-
+```
 
 
 # Release Notes (Reverse Chronological Order)
@@ -127,6 +157,8 @@ During ALPHA and BETA, the following semantic versioning rules apply:
 * The major version will be zero.
 * Breaking changes or feature additions will increment the minor version.
 * Bug fixes and documentation changes will increment the patch version.
+
+2023-04-28 v0.2.0 Implemented operator support. Updated dependencies.
 
 2023-04-27 v0.1.0 Enhanced documentation. Re-implemented `where` to be more efficient.
 

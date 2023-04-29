@@ -1,5 +1,7 @@
 import {ANY,selector} from "lmdb-query";
 import {CXProduct} from "cxproduct";
+import {operators} from "./src/operators.js";
+
 
 const optimize = (conditions,classNames) => {
     // optimize each to level portion
@@ -95,7 +97,7 @@ function select(select=(value)=>value) {
                                 // get instances if key is an array, otherwise key is the id and value is the instance
                                 let id = key;
                                 value = Array.isArray(key) ? db.get(id=key.pop()) : schema.create(value);
-                                let leftvalue = type==="function" ? test(value[leftproperty]) : value[leftproperty];
+                                let leftvalue = type==="function" ? (test.callLeft ? test.callLeft(value[leftproperty]) : test(value[leftproperty])) : value[leftproperty];
                                 if (leftvalue === undefined) {
                                     delete results[leftalias][id]
                                     break;
@@ -120,7 +122,7 @@ function select(select=(value)=>value) {
                                                 value
                                             } of _classes[rightalias].entries(rightproperty, test)) {
                                                 // fail if comparison function fails
-                                                if (type === "function" && rightvalue.length > 1 && rightvalue(leftvalue, value[rightproperty]) === undefined) {
+                                                if (type === "function" && rightvalue.length > 1 && (rightvalue.callRight ? rightvalue.callRight(leftvalue, value[rightproperty]) : rightvalue(leftvalue, value[rightproperty])) === undefined) {
                                                     delete results[rightalias][key];
                                                     break;
                                                 }
@@ -180,4 +182,37 @@ const withExtensions = (db,extensions={}) => {
     return lmdbExtend(db,{select,delete:del,...extensions})
 }
 
-export {withExtensions}
+const functionalOperators = Object.entries(operators).reduce((operators,[key,f]) => {
+    operators[key] = function(test) {
+        let join;
+        const op = (left,right) => {
+            return join ? f(left,right) : f(left,{test});
+        }
+        op.callLeft = (left) => {
+            join = true;
+            let result;
+            try {
+                result = op(left,{test});
+                join = false;
+            } finally {
+                join = false;
+            }
+            return result;
+        }
+        op.callRight = (left,right) => {
+            join = true;
+            let result;
+            try {
+                result = (test===undefined ? op(left, {test:right}) : op(right,{test}));
+                join = false;
+            } finally {
+                join = false;
+            }
+            return result;
+        }
+        return op;
+    }
+    return operators;
+},{});
+
+export {withExtensions,functionalOperators as operators}
