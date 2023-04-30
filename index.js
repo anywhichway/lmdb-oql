@@ -156,7 +156,18 @@ function select(select=(value)=>value) {
                             const name = names[i];
                             join[name] = results[name][id];
                         })
-                        yield selector(select,join);
+                        const selected = selector(select,join);
+                        // temporary until selector is patched in lmdb-query
+                        if(selected) {
+                            Object.entries(selected).forEach(([key,value]) => {
+                                if(value && typeof(value)==="object") {
+                                    if(Object.keys(value).length===0) {
+                                        delete selected[key];
+                                    }
+                                }
+                            })
+                            yield selected;
+                        }
                     }
                 }
             }
