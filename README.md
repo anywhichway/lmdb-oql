@@ -15,9 +15,9 @@ nom install lmdb-oql
 
 ```javascript
 import {open} from "lmdb";
-import {withExtensions,operators} from "lmdb-oql";
+import {operators,withExtensions,IDS} from "lmdb-oql";
 
-const {$gte} = operators;
+const {$mod,$gte} = operators;
 class Person {
     constructor(config={}) {
         Object.assign(this,config);
@@ -52,8 +52,22 @@ Person {
 }
  */
 
-// you can use predefined operators in place of literal matchee
+// you can use predefined operators in place of literal matches
 console.log([...db.select().from(Person).where({Person:{age:$gte(21)}})]);
+/*
+[
+  {
+    Person: Person {
+      name: 'bill',
+      age: 21,
+      employer: 'ACME',
+      '#': 'Person@850ad934-a449-493e-846a-96e00a1b6546'
+    }
+  }
+]
+ */
+// there are lots of operators, Person has an odd numbered age, could use $odd
+console.log([...db.select().from(Person).where({Person:{age:$mod([2,1])}})]);
 /*
 [
   {
@@ -115,6 +129,12 @@ console.log([...db.select({P:{name(value,{root}) { root.name=value; }},E:{addres
     .where({P:{employer: {E:{name:"ACME"}}}})]);
 /*
 [ { name: 'bill', workAddress: '123 Main St.' } ]
+*/
+
+// you can select just ids
+console.log([...db.select(IDS).from([Person, "P"],[Employer,"E"]).where({P:{employer: {E:{name:"ACME"}}}})])
+/*
+[ [ 'Person@64fc6554-066c-47dd-a99e-d0492dcb957c', 'Employer@1' ] ]
  */
 
 ```
@@ -123,32 +143,94 @@ console.log([...db.select({P:{name(value,{root}) { root.name=value; }},E:{addres
 
 Operators take either 0 or 1 argument. If on the left side of a join, there should be 1 argument. On the right side of a join, providing no argument compares the value to the left. Providing 1 argument creates a right outer join where the right side value satisfies the operator.
 
+The documentation below just shows how to use the operator with a single argument.
+
+### Logical
+
 `$and` - NOT YET IMPLEMENTED
 
 `$or` - NOT YET IMPLEMENTED
 
-`$lt`
+`$not` - NOT YET IMPLEMENTED
 
-`$lte`
+### Types
 
-`$eq`
+`$type(value:any)` - returns item being compared if it is of type value , otherwise `undefined`
 
-`$eeq`
+`$instanceof` - NOT YET IMPLEMENTED
 
-`$neq`
+### Comparisons
 
-`$gte`
+`$lt(value:number|string)` - returns item being compared if it is < value , otherwise `undefined`
 
-`$gt`
+`$lte(value:number|string)` - returns item being compared if it is <= value , otherwise `undefined`
 
-`$between` - NOT YET IMPLEMENTED
+`$eq(value:number|string)` - returns item being compared if it is == value , otherwise `undefined`
 
-`$in` - NOT YET IMPLEMENTED
+`$eeq(value:number|string)` - returns item being compared if it is === value , otherwise `undefined
+
+`$neq(value:number|string)` - returns item being compared if it is != value , otherwise `undefined`
+
+`$gte(value:number|string)` - returns item being compared if it is >= value , otherwise `undefined`
+
+`$gt(value:number|string)` - returns item being compared if it is > value , otherwise `undefined`
+
+`$between(value1:number|string,value2:number|string)` - returns item being compared if it is >= value1 and <= value2 , otherwise `undefined`
+
+`$outside(value1:number|string,value2:number|string)` - returns item being compared if it is < value1 or > value2 , otherwise `undefined`
+
+### Arrays & Strings
+
+`$in(value:array|string)` - returns item being compared if it is in value , otherwise `undefined`
+
+`$nin(value:array|string)` - returns item being compared if it is not in value , otherwise `undefined`
+
+`$includes(value:any)` - returns item being compared if it contains value , otherwise `undefined`
+
+`$excludes(value:any)` - returns item being compared if it does not contain value , otherwise `undefined`
+
+`$startsWith(value:string)` - returns item being compared if it starts with value , otherwise `undefined`
+
+`$endsWith(value:string)` - returns item being compared if it ends with value , otherwise `undefined`
+
+`$length(value:number)` - returns item being compared if it has length value , otherwise `undefined`
+
+`$includes(value:any)` - returns item being compared if it contains value , otherwise `undefined`
+
+`$excludes(value:any)` - returns item being compared if it does not contain value , otherwise `undefined`
+
+`$startsWith(value:string)` - returns item being compared if it starts with value , otherwise `undefined`
+
+`$endsWith(value:string)` - returns item being compared if it ends with value , otherwise `undefined`
+
+`$length(value:number)` - returns item being compared if it has length value , otherwise `undefined`
+
+### Other String Operators
+
+`$matches` - NOT YET IMPLEMENTED
+
+`$like` - NOT YET IMPLEMENTED
+
+### Math
+
+`$odd(value)` - returns item being compared if it is odd , otherwise `undefined`
+
+`$even(value)` - returns item being compared if it is even , otherwise `undefined`
+
+`add(value:array)` - returns item being compared if item being compared + value[0] === value[1] , otherwise `undefined`
+
+`subtract(value:array)` - returns item being compared if item being compared - value[0] === value[1] , otherwise `undefined`
+
+`multiply(value:array)` - returns item being compared if item being compared * value[0] === value[1] , otherwise `undefined`
+
+`divide(value:array)` - returns item being compared if item being compared / value[0] === value[1] , otherwise `undefined`
+
+`$mod(value:array)` - returns item being compared if the mod of value[0] is value[1] , otherwise `undefined`
 
 
 ### LMDB Index API
 
-Developers should be familiar wit the behavior of [lmdb-index](https://github.com/anywhichway/lmdb-index), particularly `defineSchema` and `put`, the documentation for which is replicated here:
+Developers should be familiar with the behavior of [lmdb-index](https://github.com/anywhichway/lmdb-index), particularly `defineSchema` and `put`, the documentation for which is replicated here:
 
 ### async defineSchema(classConstructor,?options={}) - returns boolean
 
@@ -172,7 +254,11 @@ If there is a mismatch between the `key` and the `idKey` of the object, an Error
 
 # API
 
-`* db.select(?selector:object|function,?{class:constructor}).from(?...classes).where(?conditions:object)` - returns object
+`* db.delete().from(?...classes).where(?conditions:object)` - yields ids of deleted objects
+
+NOT YET IMPLEMENTED
+
+`* db.select(?selector:object|function,?{class:constructor}).from(?...classes).where(?conditions:object)` - yields object representing join
 
 A generator function that selects instances across multiple classes based on a `conditions` object that can contain literals, regular expressions, functions, and joins. The `where` chained function optimizes the `conditions` and processes the most restrictive criteria first.
 
@@ -230,6 +316,21 @@ db.select({Person:{name(value,{root}) { delete root.Person;return root.name=valu
     .where({name:NOTNULL}) // yields objects of the form {name:<some name>}
 ```
 
+`* db.update(?...classes).set(?...updates).where(?conditions:object)` - yields ids of updated objects
+
+NOT YET IMPLEMENTED
+
+# Testing
+
+Testing conducted with `jest`.
+
+File      | % Stmts | % Branch | % Funcs | % Lines | Uncovered Line #s
+----------|---------|----------|---------|---------|------------------------
+All files      |   81.11 |     58.4 |      60 |   83.33 |
+lmdb-oql      |    83.7 |    64.64 |   67.85 |   86.15 |
+index.js     |    83.7 |    64.64 |   67.85 |   86.15 | 12,15,38,102-103,116,126-127,133-134,166,181-195,244-246
+lmdb-oql/src  |    37.5 |    14.28 |   28.57 |    37.5 |
+operators.js |    37.5 |    14.28 |   28.57 |    37.5 | 3-6,12-15,21
 
 # Release Notes (Reverse Chronological Order)
 
@@ -239,6 +340,8 @@ During ALPHA and BETA, the following semantic versioning rules apply:
 * Breaking changes or feature additions will increment the minor version.
 * Bug fixes and documentation changes will increment the patch version.
 
+2023-04-30 v0.3.0 Implemented ability to return `IDS` only for `select`. Added lots of operators. Enhanced documentation.
+
 2023-04-29 v0.2.1 Enhanced documentation and `examples/basic.js`.
 
 2023-04-28 v0.2.0 Implemented operator support. Updated dependencies.
@@ -246,3 +349,9 @@ During ALPHA and BETA, the following semantic versioning rules apply:
 2023-04-27 v0.1.0 Enhanced documentation. Re-implemented `where` to be more efficient.
 
 2023-04-27 v0.0.1 Initial public release
+
+# License
+
+This software is provided as-is under the [MIT license](http://opensource.org/licenses/MIT).
+
+Copyright (c) 2023, AnyWhichWay, LLC and Simon Y. Blackwell.

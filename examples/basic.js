@@ -1,7 +1,7 @@
 import {open} from "lmdb";
-import {withExtensions,operators} from "../index.js";
+import {operators,withExtensions,IDS} from "../index.js";
 
-const {$gte} = operators;
+const {$mod,$gte} = operators;
 class Person {
     constructor(config={}) {
         Object.assign(this,config);
@@ -36,8 +36,22 @@ Person {
 }
  */
 
-// you can use predefined operators in place of literal matchee
+// you can use predefined operators in place of literal matches
 console.log([...db.select().from(Person).where({Person:{age:$gte(21)}})]);
+/*
+[
+  {
+    Person: Person {
+      name: 'bill',
+      age: 21,
+      employer: 'ACME',
+      '#': 'Person@850ad934-a449-493e-846a-96e00a1b6546'
+    }
+  }
+]
+ */
+// there are lots of operators, Person has an odd numbered age, could use $odd
+console.log([...db.select().from(Person).where({Person:{age:$mod([2,1])}})]);
 /*
 [
   {
@@ -99,4 +113,10 @@ console.log([...db.select({P:{name(value,{root}) { root.name=value; }},E:{addres
     .where({P:{employer: {E:{name:"ACME"}}}})]);
 /*
 [ { name: 'bill', workAddress: '123 Main St.' } ]
+*/
+
+// you can select just ids
+console.log([...db.select(IDS).from([Person, "P"],[Employer,"E"]).where({P:{employer: {E:{name:"ACME"}}}})])
+/*
+[ [ 'Person@64fc6554-066c-47dd-a99e-d0492dcb957c', 'Employer@1' ] ]
  */

@@ -156,16 +156,18 @@ function select(select=(value)=>value) {
                             const name = names[i];
                             join[name] = results[name][id];
                         })
-                        const selected = selector(select,join);
+                        const selected = select===IDS ? select.bind(db)(join) : selector(select,join);
                         // temporary until selector is patched in lmdb-query
                         if(selected) {
-                            Object.entries(selected).forEach(([key,value]) => {
-                                if(value && typeof(value)==="object") {
-                                    if(Object.keys(value).length===0) {
-                                        delete selected[key];
+                            if(typeof(select)!=="function") {
+                                Object.entries(selected).forEach(([key,value]) => {
+                                    if(value && typeof(value)==="object") {
+                                        if(Object.keys(value).length===0) {
+                                            delete selected[key];
+                                        }
                                     }
-                                }
-                            })
+                                })
+                            }
                             yield selected;
                         }
                     }
@@ -187,10 +189,22 @@ function del() {
     }
 }
 
+function update(...classes) {
+    return {
+        set(set) {
+            return {
+                where(where) {
+
+                }
+            }
+        }
+    }
+}
+
 import {withExtensions as lmdbExtend} from "lmdb-index";
 
 const withExtensions = (db,extensions={}) => {
-    return lmdbExtend(db,{select,delete:del,...extensions})
+    return lmdbExtend(db,{select,delete:del,update,...extensions})
 }
 
 const functionalOperators = Object.entries(operators).reduce((operators,[key,f]) => {
@@ -226,4 +240,12 @@ const functionalOperators = Object.entries(operators).reduce((operators,[key,f])
     return operators;
 },{});
 
-export {withExtensions,functionalOperators as operators}
+function IDS(value) {
+    return Object.values(value).map((value) => {
+        const schema = this.getSchema(value);
+        return schema ? value[schema.idKey||"#"] : value["#"]
+    });
+
+}
+
+export {functionalOperators as operators,withExtensions,IDS}
