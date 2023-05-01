@@ -143,7 +143,7 @@ console.log([...db.select(IDS).from([Person, "P"],[Employer,"E"]).where({P:{empl
 
 Operators take either 0 or 1 argument. If on the left side of a join, there should be 1 argument. On the right side of a join, providing no argument compares the value to the left. Providing 1 argument creates a right outer join where the right side value satisfies the operator.
 
-The documentation below just shows how to use the operator with a single argument.
+The documentation below just shows how to use the operator with a single argument. The `item being compared` for each definition below is the value of a property in an object on either the left or right side of a join.
 
 ### Logical
 
@@ -155,25 +155,65 @@ The documentation below just shows how to use the operator with a single argumen
 
 ### Types
 
-`$type(value:any)` - returns item being compared if it is of type value , otherwise `undefined`
+`$type(value:any)` - returns item being compared if it is of type value, otherwise `undefined`
 
 `$instanceof` - NOT YET IMPLEMENTED
 
+`$isOdd(value:any)` - returns item being compared if it is odd, otherwise `undefined`
+
+`$isEven(value:any)` - returns item being compared if it is even, otherwise `undefined`
+
+`$isTruthy(value:any)` - returns item being compared if it is truthy, otherwise `undefined`
+
+`$isFalsy(value:any)` - returns item being compared if it is falsy, otherwise `undefined`
+
+`$isPositive(value:any)` - returns item being compared if it is positive, otherwise `undefined`
+
+`$isNegative(value:any)` -  returns item being compared if it is negative, otherwise `undefined`
+
+`$isFloat(value:any)` -  returns item being compared if it is a float, otherwise `undefined`
+
+`$isNaN(value:any)` -  returns item being compared if it is not a number, otherwise `undefined`
+
+`$isInteger(value:any)` -  returns item being compared if it is an integer, otherwise `undefined`
+
+`$isUndefined(value:any)` -  returns item being compared if it is undefined, otherwise `undefined`
+
+`$isNull(value:any)` -  returns item being compared if it is null, otherwise `undefined`
+
+`$isDefined(value:any)` -  returns item being compared if it is defined, otherwise `undefined`
+
+`$isPrimitive(value:any)` -  returns item being compared if it is a primitive, otherwise `undefined`
+
+`$isArray(value:any)` -  returns item being compared if it is an array, otherwise `undefined`
+
+`$isEmail(value:any)`  -  returns item being compared if it is an email address , otherwise `undefined`
+
+`$isURL(value:any)`  -  returns item being compared if it is a URL , otherwise `undefined`
+
+`$isUUID(value:any)`  -  returns item being compared if it is a v4 UUID , otherwise `undefined`
+
+`$isISBN(value:any)`  -  returns item being compared if it is an ISBN number, otherwise `undefined`
+
+`$isSSN(value:any)`  -  returns item being compared if it is a social security number, otherwise `undefined`
+
+`$isZIPCode(value:any)`  -  returns item being compared if it is a zip code, otherwise `undefined`
+
 ### Comparisons
 
-`$lt(value:number|string)` - returns item being compared if it is < value , otherwise `undefined`
+`$lt(value:number|string)` - returns item being compared if it is < value, otherwise `undefined`
 
-`$lte(value:number|string)` - returns item being compared if it is <= value , otherwise `undefined`
+`$lte(value:number|string)` - returns item being compared if it is <= value, otherwise `undefined`
 
-`$eq(value:number|string)` - returns item being compared if it is == value , otherwise `undefined`
+`$eq(value:number|string)` - returns item being compared if it is == value, otherwise `undefined`
 
-`$eeq(value:number|string)` - returns item being compared if it is === value , otherwise `undefined
+`$eeq(value:number|string)` - returns item being compared if it is === value, otherwise `undefined
 
-`$neq(value:number|string)` - returns item being compared if it is != value , otherwise `undefined`
+`$neq(value:number|string)` - returns item being compared if it is != value, otherwise `undefined`
 
-`$gte(value:number|string)` - returns item being compared if it is >= value , otherwise `undefined`
+`$gte(value:number|string)` - returns item being compared if it is >= value, otherwise `undefined`
 
-`$gt(value:number|string)` - returns item being compared if it is > value , otherwise `undefined`
+`$gt(value:number|string)` - returns item being compared if it is > value, otherwise `undefined`
 
 `$between(value1:number|string,value2:number|string)` - returns item being compared if it is >= value1 and <= value2 , otherwise `undefined`
 
@@ -181,35 +221,54 @@ The documentation below just shows how to use the operator with a single argumen
 
 ### Arrays & Strings
 
-`$in(value:array|string)` - returns item being compared if it is in value , otherwise `undefined`
+`$in(value:array|string)` - returns item being compared if it is in value, otherwise `undefined`
 
-`$nin(value:array|string)` - returns item being compared if it is not in value , otherwise `undefined`
+`$nin(value:array|string)` - returns item being compared if it is not in value, otherwise `undefined`
 
-`$includes(value:any)` - returns item being compared if it contains value , otherwise `undefined`
+`$includes(value:any)` - returns item being compared if it contains value, otherwise `undefined`
 
-`$excludes(value:any)` - returns item being compared if it does not contain value , otherwise `undefined`
+`$excludes(value:any)` - returns item being compared if it does not contain value, otherwise `undefined`
 
-`$startsWith(value:string)` - returns item being compared if it starts with value , otherwise `undefined`
+`$startsWith(value:string)` - returns item being compared if it starts with value, otherwise `undefined`
 
-`$endsWith(value:string)` - returns item being compared if it ends with value , otherwise `undefined`
+`$endsWith(value:string)` - returns item being compared if it ends with value, otherwise `undefined`
 
-`$length(value:number)` - returns item being compared if it has length value , otherwise `undefined`
+`$length(value:number)` - returns item being compared if it has length value, otherwise `undefined`
 
-`$includes(value:any)` - returns item being compared if it contains value , otherwise `undefined`
+`$includes(value:any)` - returns item being compared if it contains value, otherwise `undefined`
 
-`$excludes(value:any)` - returns item being compared if it does not contain value , otherwise `undefined`
+`$excludes(value:any)` - returns item being compared if it does not contain value, otherwise `undefined`
 
-`$startsWith(value:string)` - returns item being compared if it starts with value , otherwise `undefined`
+`$nin(value:array|string)` - returns item being compared if it is not in value, otherwise `undefined`
 
-`$endsWith(value:string)` - returns item being compared if it ends with value , otherwise `undefined`
+`$in(value:array|string)` - returns item being compared if it is in value, otherwise `undefined`
 
-`$length(value:number)` - returns item being compared if it has length value , otherwise `undefined`
+`$startsWith(value:string)` - returns item being compared if it starts with value, otherwise `undefined`
+
+`$endsWith(value:string)` - returns item being compared if it ends with value, otherwise `undefined`
+
+`$length(value:number)` - returns item being compared if it has length value, otherwise `undefined`
+
+### Sets (based on Arrays)
+
+`$intersects(value:array)` - returns item being compared if it intersects with value, otherwise `undefined`
+
+`$disjoint(value:array)` - returns item being compared if it does not intersect with value, otherwise `undefined`
+
+`$subset(value:array)` - returns item being compared if it is a subset of value, otherwise `undefined`
+
+`$superset(value:array)` - returns item being compared if it is a superset of value, otherwise `undefined`
+
+`$symmetric(value:array)` - returns item being compared if it is a symmetric of value, otherwise `undefined`
+
 
 ### Other String Operators
 
-`$matches` - NOT YET IMPLEMENTED
+`$matches(regexp:RegExp)` -  returns item being compared if it matches `regexp`, otherwise `undefined`
 
 `$like` - NOT YET IMPLEMENTED
+
+`$echoes(value:string)` - returns item being compared if it sounds like `value`, otherwise `undefined`
 
 ### Math
 
@@ -226,7 +285,6 @@ The documentation below just shows how to use the operator with a single argumen
 `divide(value:array)` - returns item being compared if item being compared / value[0] === value[1] , otherwise `undefined`
 
 `$mod(value:array)` - returns item being compared if the mod of value[0] is value[1] , otherwise `undefined`
-
 
 ### LMDB Index API
 
@@ -326,11 +384,11 @@ Testing conducted with `jest`.
 
 File      | % Stmts | % Branch | % Funcs | % Lines | Uncovered Line #s
 ----------|---------|----------|---------|---------|------------------------
-All files      |   81.11 |     58.4 |      60 |   83.33 |
-lmdb-oql      |    83.7 |    64.64 |   67.85 |   86.15 |
-index.js     |    83.7 |    64.64 |   67.85 |   86.15 | 12,15,38,102-103,116,126-127,133-134,166,181-195,244-246
-lmdb-oql/src  |    37.5 |    14.28 |   28.57 |    37.5 |
-operators.js |    37.5 |    14.28 |   28.57 |    37.5 | 3-6,12-15,21
+All files      |      85 |    80.29 |   82.41 |   85.64 |
+lmdb-oql      |   81.29 |    65.97 |   64.28 |   83.58 |
+index.js     |   81.29 |    65.97 |   64.28 |   83.58 | 12,15,38,115,125-126,132-133,179,194-208,230-238,257-259
+lmdb-oql/src  |   91.35 |    88.37 |   90.47 |    89.7 |
+operators.js |   91.35 |    88.37 |   90.47 |    89.7 | 57-69,154-155
 
 # Release Notes (Reverse Chronological Order)
 
@@ -339,6 +397,8 @@ During ALPHA and BETA, the following semantic versioning rules apply:
 * The major version will be zero.
 * Breaking changes or feature additions will increment the minor version.
 * Bug fixes and documentation changes will increment the patch version.
+
+2023-05-01 v0.4.0 Improved/optimized join capability. Added many operators. Enhanced unit tests. Enhanced documentation.
 
 2023-04-30 v0.3.0 Implemented ability to return `IDS` only for `select`. Added lots of operators. Enhanced documentation.
 

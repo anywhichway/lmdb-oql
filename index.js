@@ -81,10 +81,9 @@ function select(select=(value)=>value) {
                             index = "@@" + cname,
                             schema = db.getSchema(cname);
                         aliases.add(leftalias);
-                        results[leftalias] ||= {}
-                        //for(const {key,value} of getRangeWhere([idprefix],null,null,{bumpIndex:0,bump(value) { return value + String.fromCharCode(65535)}})) { // gets all objects of class cname
-                        //const left = schema ? schema.create(value) : value;
-                        let count = 0;
+                        results[leftalias] ||= {};
+                        const oldCounts = {...results[leftalias]};
+                        let maxCount = 0;
                         for(const [leftproperty,test] of Object.entries(leftpattern)) {
                             const type = typeof(test);
                             let generator;
@@ -96,19 +95,19 @@ function select(select=(value)=>value) {
                             for(let {key,value} of generator) {
                                 // get instances if key is an array, otherwise key is the id and value is the instance
                                 let id = key;
-                                value = Array.isArray(key) ? db.get(id=key.pop()) : schema.create(value);
-                                let leftvalue = type==="function" ? (test.callLeft ? test.callLeft(value[leftproperty]) : test(value[leftproperty])) : value[leftproperty];
-                                if (leftvalue === undefined) {
-                                    delete results[leftalias][id]
-                                    break;
-                                } // skips objects that do not have requested property or if property fails test
-                                results[leftalias][id] = value;
-                                count++;
+                                value = Array.isArray(key) ? db.get(id = key.pop()) : schema.create(value);
+                                let leftvalue = value[leftproperty];
+                                //if (leftvalue === undefined) {
+                                //    break;
+                               // } // skips objects that do not have requested property or if property fails test
+                                results[leftalias][id] ||= {count:0,value};
+                                maxCount = results[leftalias][id].count += 1;
                                 if(test && type==="object") {
                                     for (const [rightalias, rightpattern] of Object.entries(test)) {
                                         results[rightalias] ||= {};
                                         aliases.add(rightalias);
                                         let every = true;
+                                        //const oldCounts = {...results[leftalias]};
                                         for (const [rightproperty, rightvalue] of Object.entries(rightpattern)) {
                                             const type = typeof (rightvalue);
                                             // fail if property value test fails
@@ -126,7 +125,7 @@ function select(select=(value)=>value) {
                                                     delete results[rightalias][key];
                                                     break;
                                                 }
-                                                results[rightalias][key] = value;
+                                                results[rightalias][key] ||= {value};
                                             }
                                         }
                                         if (!every) {
@@ -136,11 +135,25 @@ function select(select=(value)=>value) {
                                     }
                                 }
                             }
-                            if(count===0) {
+                            if(maxCount===0) {
                                 delete results[leftalias];
                                 break;
                             }
                         }
+                        if(maxCount===0) {
+                            delete results[leftalias];
+                            break;
+                        }
+                        for(const [id, {count}] of Object.entries(results[leftalias])) {
+                            if(count<maxCount) {
+                                delete results[leftalias][id];
+                            }
+                        }
+                        /*for(const [id,oldCount] of Object.entries(oldCounts)) {
+                            if(oldCount<results[leftalias][id]) {
+                                delete results[leftalias][id];
+                            }
+                        }*/
                     }
                     if(![...Object.values(aliases)].every((alias) => alias in results)) return;
                     const join = {};
@@ -154,7 +167,7 @@ function select(select=(value)=>value) {
                         const join = {};
                         product.forEach((id,i) => {
                             const name = names[i];
-                            join[name] = results[name][id];
+                            join[name] = results[name][id].value;
                         })
                         const selected = select===IDS ? select.bind(db)(join) : selector(select,join);
                         // temporary until selector is patched in lmdb-query
