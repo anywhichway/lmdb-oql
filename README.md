@@ -3,7 +3,7 @@ A high level object query language for indexed LMDB databases using [lmdb-index]
 
 Easily join and select data across multiple collections/classes using literals, functions, regular expressions, and built-in predicates to match property names or values using the familiar nomenclature `select(what).from(classes).where(conditions)`.
 
-This is ALPHA software. The API is not yet stable and adequate unit testing has not been completed.
+This is BETA software. The API is stable and unit tests have over 90% coverage.
 
 # Installation
 
@@ -141,23 +141,21 @@ console.log([...db.select(IDS).from([Person, "P"],[Employer,"E"]).where({P:{empl
 
 ## Operators
 
-Operators take either 0 or 1 argument. If on the left side of a join, there should be 1 argument. On the right side of a join, providing no argument compares the value to the left. Providing 1 argument creates a right outer join where the right side value satisfies the operator.
+Operators take either 0 or 1 argument. If on the left side of a join, there should be 0 or 1 argument. Zero argument operators are typically used to test the type of the value being compared, e.g. `$isZIPCode()`. On the right side of a join, providing no argument compares the value to the left. Providing 1 argument creates a right outer join where the right side value satisfies the operator.
 
 The documentation below just shows how to use the operator with a single argument. The `item being compared` for each definition below is the value of a property in an object on either the left or right side of a join.
 
 ### Logical
 
-`$and` - NOT YET IMPLEMENTED
+`$and(...operatorCalls)` - returns the item being compared if it satisfies all conditions, otherwise `undefined`
 
-`$or` - NOT YET IMPLEMENTED
+`$or(...operatorCalls)` - returns the item being compared if it satisfies any condition, otherwise `undefined`
 
-`$not` - NOT YET IMPLEMENTED
+`$not(operatorCall)` - returns the item being compared if it does not satisfy the condition, otherwise `undefined`
 
 ### Types
 
 `$type(value:any)` - returns item being compared if it is of type value, otherwise `undefined`
-
-`$instanceof` - NOT YET IMPLEMENTED
 
 `$isOdd(value:any)` - returns item being compared if it is odd, otherwise `undefined`
 
@@ -261,12 +259,9 @@ The documentation below just shows how to use the operator with a single argumen
 
 `$symmetric(value:array)` - returns item being compared if it is a symmetric of value, otherwise `undefined`
 
-
 ### Other String Operators
 
 `$matches(regexp:RegExp)` -  returns item being compared if it matches `regexp`, otherwise `undefined`
-
-`$like` - NOT YET IMPLEMENTED
 
 `$echoes(value:string)` - returns item being compared if it sounds like `value`, otherwise `undefined`
 
@@ -304,7 +299,7 @@ To index all keys on all objects using UUIDs as ids and `#` as the id key, call 
 
 Works similar to [lmdb put](https://github.com/kriszyp/lmdb-js#dbputkey-value-version-number-ifversion-number-promiseboolean)
 
-If `value` is an object, it will be indexed by the keys of the object so long as it is an instance of an object controlled by a schema declared with `defineSchema`. To index all keys on all objects, call `db.defineSchema(Object)`. If `key` is `null`, a unique id will be generated and added to the object. See [defineSchema](#async-defineschemaclassconstructor-options) for more information.
+If `value` is an object, it will be indexed by the top level keys of the object so long as it is an instance of an object controlled by a schema declared with `defineSchema`. To index all top level keys on all objects, call `db.defineSchema(Object)`. If `key` is `null`, a unique id will be generated and added to the object. See [defineSchema](#async-defineschemaclassconstructor-options) for more information.
 
 If there is a mismatch between the `key` and the `idKey` of the object, an Error will be thrown.
 
@@ -312,15 +307,13 @@ If there is a mismatch between the `key` and the `idKey` of the object, an Error
 
 # API
 
-`* db.delete().from(?...classes).where(?conditions:object)` - yields ids of deleted objects
+The `select` method is documented first because it illustrates the full range of argument surfaces also used in `delete`, `insert`, and `update`. After `select`, methods are documented in alphabetical order.
 
-NOT YET IMPLEMENTED
-
-`* db.select(?selector:object|function,?{class:constructor}).from(?...classes).where(?conditions:object)` - yields object representing join
+`* db.select(?selector:object|function,?{class:constructor}).from(...classes).where(?conditions:object)` - yields object representing join
 
 A generator function that selects instances across multiple classes based on a `conditions` object that can contain literals, regular expressions, functions, and joins. The `where` chained function optimizes the `conditions` and processes the most restrictive criteria first.
 
-THe returned value will be a class instance if only one class is provided in `from` and plain object if the selection is done across multiple classes unless a `class` is provided as an option to `select`. The `class` provided to `select` and used in `from` do not have to be declared using `defineSchema`, they will be automatically declared.
+The returned value will be a class instance if only one class is provided in `from` and plain object if the selection is done across multiple classes unless a `class` is provided to `selector`. A `class` provided to `select` and used in `from` does not have to be declared using `defineSchema`, it will be automatically declared and all top level properties will be indexed. If a schema has already been defined, it will be respected. The objects nested in the `conditions` object (see `where` below) do not have to be instances of their respective classes, it is their data values that matter.
 
 `selector(result:object)` - If selector is a function it takes an object representing the joined instances matching the `where` object. It can manipulate the object in any way it wishes. It defaults to `(value) => value`
 
@@ -328,7 +321,7 @@ THe returned value will be a class instance if only one class is provided in `fr
 
 `...classes` can be any number of class constructors. By default, the constructor name will be used as an alias in the `where` clause and joined instances. Specific alias can be provided by using two element arrays, e.g. `from([Person,"P1"],[Person,"P2"])` if you need to join `Person` back to itself.
 
-`where` is typically an object containing literals, RegExp, and functions as property values. Serialized regular expressions can alos be used for property names. Joins are created by using a class alias (see `...classes` above) as a property name.
+`where` is an onbject with top level properties matching class names or aliases. The values of these properties are objects used to match against instances of the classes. These sub-objects contain literals, RegExp, and functions as property values. Serialized regular expressions can also be used for property names. Joins are created by using a class alias (see `...classes` above) as a property name.
 
 For example:
 
@@ -374,9 +367,28 @@ db.select({Person:{name(value,{root}) { delete root.Person;return root.name=valu
     .where({name:NOTNULL}) // yields objects of the form {name:<some name>}
 ```
 
-`* db.update(?...classes).set(?...updates).where(?conditions:object)` - yields ids of updated objects
+`* async db.delete().from(...classes:class).where(?conditions:object)` - yields ids of deleted objects
 
-NOT YET IMPLEMENTED
+Deletes instances of `classes` based on `conditions`. If `conditions` is not provided, all instances of `classes` will be deleted.
+
+Attempting to use `.db.get()` on a deleted object will return `undefined`. The `ids` are just yielded for convenience.
+
+`* async db.insert().into(...classes:class).values(values:object)` - yields ids of inserted objects as an array
+
+Multiple `classes` can be provided. The `values` object should contain top level properties that match the class names or aliases of the `classes` provided. The values of those properties should be objects containing the properties to be inserted,e g. `{Person:{name:"Bill",age:22}}` will insert a `Person` with name "Bill" and age of 22. You can also provide an array of objects to insert multiple objects, e.g. `{Person:[{name"Mary",age:22},{name:"John",age:23}]}` will insert two `Person` objects. If you need to store Arrays as top level database objects, you can use the `Array` class and MUST provide an array with more than one dimension as a value, e.g. `{Array:[[1,2,3],[4,5,6]]}` will insert `Array` objects.
+
+`* async db.put(key,?data,?options)` - yields id of inserted object
+
+Effectively the same as `db.put(null,data)` except that `data` can be a plain object and is coerced into and instance of a class.
+
+`* async db.update(...classes:class).set(updates:object).where(?conditions:object)` - yields ids of updated objects
+
+Patches instances of `classes`with `updates` based on `conditions`. If `conditions` is not provided, all instances of `classes` will be updated.
+
+Multiple `classes` can be provided. The `updates` object should contain top level properties that match the class names of the `classes` provided. The values of those properties should be objects containing the properties to be updated and their new values,e g. `{Person:{age:22}}` will update all matching instances of `Person` to have the age of 22.
+
+Providing property values of `undefined` in `updates will delete the property from instances.
+
 
 # Testing
 
@@ -384,11 +396,11 @@ Testing conducted with `jest`.
 
 File      | % Stmts | % Branch | % Funcs | % Lines | Uncovered Line #s
 ----------|---------|----------|---------|---------|------------------------
-All files      |      85 |    80.29 |   82.41 |   85.64 |
-lmdb-oql      |   81.29 |    65.97 |   64.28 |   83.58 |
-index.js     |   81.29 |    65.97 |   64.28 |   83.58 | 12,15,38,115,125-126,132-133,179,194-208,230-238,257-259
-lmdb-oql/src  |   91.35 |    88.37 |   90.47 |    89.7 |
-operators.js |   91.35 |    88.37 |   90.47 |    89.7 | 57-69,154-155
+All files      |   93.33 |    86.61 |   94.44 |   95.16 |
+lmdb-oql      |   90.42 |    69.64 |   86.66 |   93.29 |
+index.js     |   90.42 |    69.64 |   86.66 |   93.29 | 12,15,26,102,112-113,119-120,161,290,299,308
+lmdb-oql/src  |     100 |    97.67 |     100 |     100 |
+operators.js |     100 |    97.67 |     100 |     100 | 10,167,171-172
 
 # Release Notes (Reverse Chronological Order)
 
@@ -397,6 +409,9 @@ During ALPHA and BETA, the following semantic versioning rules apply:
 * The major version will be zero.
 * Breaking changes or feature additions will increment the minor version.
 * Bug fixes and documentation changes will increment the patch version.
+
+2023-05-02 v0.5.0 Implemented `delete`, `update`, `insert`, `$and`, `$or`, `$not`. Added unit tests and updated documentation.
+API is now stable. Unit tests are now over 90% coverage. Moving to BETA.
 
 2023-05-01 v0.4.0 Improved/optimized join capability. Added many operators. Enhanced unit tests. Enhanced documentation.
 
@@ -408,7 +423,7 @@ During ALPHA and BETA, the following semantic versioning rules apply:
 
 2023-04-27 v0.1.0 Enhanced documentation. Re-implemented `where` to be more efficient.
 
-2023-04-27 v0.0.1 Initial public release
+2023-04-27 v0.0.1 Initial public release.
 
 # License
 

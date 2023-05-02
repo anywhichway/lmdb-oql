@@ -112,9 +112,9 @@ test("$symmetric",() => {
 })
 
 test("$startsWith",() => {
-    expect(operators.$endsWith("1", {test: "2"})).toBeUndefined();
-    expect(operators.$endsWith("2", {test: "2"})).toBe("2");
-    expect(operators.$endsWith("2", {test: 2})).toBe("2");
+    expect(operators.$startsWith("1", {test: "2"})).toBeUndefined();
+    expect(operators.$startsWith("2", {test: "2"})).toBe("2");
+    expect(operators.$startsWith("2", {test: 2})).toBe("2");
 })
 
 test("$endsWith",() => {
@@ -183,6 +183,35 @@ test("$isTruthy",() => {
 test("$isFalsy",() => {
     expect(operators.$isFalsy(1, {test: true})).toBeUndefined();
     expect(operators.$isFalsy(0, {test: true})).toBe(0);
+})
+
+test("$isNull",() => {
+    expect(operators.$isNull(1, {test: true})).toBeUndefined();
+    expect(operators.$isNull(null, {test: true})).toBe(null);
+})
+
+test("$isUndefined",() => {
+    expect(operators.$isUndefined(1, {test: true})).toBeUndefined();
+    expect(operators.$isUndefined(undefined, {test: true})).toBe(undefined);
+})
+
+test("$isDefined",() => {
+    expect(operators.$isDefined(1, {test: true})).toBe(1);
+    expect(operators.$isDefined(undefined, {test: true})).toBeUndefined();
+})
+
+test("$isPrimitive",() => {
+    expect(operators.$isPrimitive(1, {test: true})).toBe(1);
+    expect(operators.$isPrimitive("a", {test: true})).toBe("a");
+    expect(operators.$isPrimitive(true, {test: true})).toBe(true);
+    expect(operators.$isPrimitive(null, {test: true})).toBeUndefined();
+    expect(operators.$isPrimitive({a: 1}, {test: true})).toBeUndefined();
+})
+
+test("$isArray",() => {
+    expect(operators.$isArray([1,2,3], {test:true})).toEqual([1,2,3]);
+    expect(operators.$isArray([1,2,"3"], {test:true})).toEqual([1,2,"3"]);
+    expect(operators.$isArray(1, {test:true})).toBeUndefined();
 })
 
 test("$isCreditCard",() => {

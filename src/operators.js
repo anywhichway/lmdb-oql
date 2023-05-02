@@ -63,7 +63,8 @@ const operators = {
         return value!==undefined ? value : undefined
     },
     $isPrimitive(value) {
-        return typeof(value)!=="object" ? value : undefined
+        const type = typeof(value);
+        return !["object","function"].includes(type) ? value : undefined;
     },
     $isArray(value) {
         return Array.isArray(value) ? value : undefined
