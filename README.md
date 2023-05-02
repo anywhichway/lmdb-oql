@@ -8,7 +8,7 @@ This is BETA software. The API is stable and unit tests have over 90% coverage.
 # Installation
 
 ```bash
-nom install lmdb-oql
+npm install lmdb-oql
 ```
 
 # Usage
@@ -409,6 +409,8 @@ During ALPHA and BETA, the following semantic versioning rules apply:
 * The major version will be zero.
 * Breaking changes or feature additions will increment the minor version.
 * Bug fixes and documentation changes will increment the patch version.
+
+2023-05-02 v0.5.1 Documentation typo fixes.
 
 2023-05-02 v0.5.0 Implemented `delete`, `update`, `insert`, `$and`, `$or`, `$not`. Added unit tests and updated documentation.
 API is now stable. Unit tests are now over 90% coverage. Moving to BETA.
