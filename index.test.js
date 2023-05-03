@@ -28,6 +28,14 @@ test("insert",async () => {
         expect(person).toBeInstanceOf(Person);
     }
 })
+test("insert with exec",async () => {
+    for (const id of await db.insert().into(Person).values({Person:{name:"joe",age:21,notes:null,address:{city:"New York",state:"NY"}}}).exec()) {
+        const person = db.get(id);
+        expect(person.name).toBe("joe");
+        expect(person).toBeInstanceOf(Person);
+        await db.remove(id);
+    }
+})
 
 test("insert array",async () => {
     for await(const id of db.insert().into(Array).values({Array:[[1,2,3]]})) {

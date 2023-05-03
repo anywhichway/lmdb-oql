@@ -1,5 +1,5 @@
 import {ANY,selector} from "lmdb-query";
-import {CXProduct} from "cxproduct";
+import cartesianProduct from "@anywhichway/cartesian-product";
 import {operators} from "./src/operators.js";
 
 
@@ -58,7 +58,6 @@ function compileClasses (db,...classes) {
 }
 
 function* where(db,conditions={},classes,select,coerce) {
-    conditions = optimize(conditions,Object.keys(classes))
     const results = {};
     // {$t1: {name: {$t2: {name: (value) => value!=null}} or null is a function for testing
     const aliases = new Set();
@@ -69,24 +68,23 @@ function* where(db,conditions={},classes,select,coerce) {
         const schema = db.getSchema(cname);
         aliases.add(leftalias);
         results[leftalias] ||= {};
-        const oldCounts = {...results[leftalias]};
         let maxCount = 0;
         for(const [leftproperty,test] of Object.entries(leftpattern)) {
             const type = typeof(test);
             let generator;
-            if(test && type==="object") { // get all instances
+            if(test && type==="object") { // get all instances from <cname>@ to one byte higher than <cname>@. relies on index structure created by lmdb-index
                 generator = db.getRangeWhere([idprefix],null,null,{bumpIndex:0,bump(value) { return value + String.fromCharCode(65535)}})
-            } else { // get ids of all instances
+            } else { // get ids of all instances. relies on index structure created by lmdb-index
                 generator = db.getRangeWhere([leftproperty,test,index])
             }
             for(let {key,value} of generator) {
                 // get instances if key is an array, otherwise key is the id and value is the instance
                 let id = key;
-                value = Array.isArray(key) ? db.get(id = key.pop()) : schema.create(value);
+                value = Array.isArray(key) ? db.get(id = key[key.length-1]) : schema.create(value);
                 let leftvalue = value[leftproperty];
-                //if (leftvalue === undefined) {
-                //    break;
-                // } // skips objects that do not have requested property or if property fails test
+                if (leftvalue === undefined) {
+                   break;
+                } // skips objects that do not have requested property
                 results[leftalias][id] ||= {count:0,value};
                 maxCount = results[leftalias][id].count += 1;
                 if(test && type==="object") {
@@ -94,11 +92,11 @@ function* where(db,conditions={},classes,select,coerce) {
                         results[rightalias] ||= {};
                         aliases.add(rightalias);
                         let every = true;
-                        //const oldCounts = {...results[leftalias]};
                         for (const [rightproperty, rightvalue] of Object.entries(rightpattern)) {
                             const type = typeof (rightvalue);
                             // fail if property value test fails
                             if ((type === "function" && rightvalue.length === 1 && rightvalue(leftvalue) === undefined) || (type !== "function" && rightvalue !== leftvalue)) {
+                                every = false;
                                 break;
                             }
                             // gets objects with same property where property values match
@@ -137,33 +135,31 @@ function* where(db,conditions={},classes,select,coerce) {
             }
         }
     }
-    if(![...Object.values(aliases)].every((alias) => alias in results)) return;
-    const join = {};
-    let i = 0;
-    const ids = [];
-    for(const values of Object.values(results)) {
-        ids.push(Object.keys(values))
+    if(![...Object.values(aliases)].every((alias) => alias in results)) {
+        return;
     }
     const names = Object.keys(results);
-    for(const product of new CXProduct(ids).asGenerator()) {
-        const join = {};
-        product.forEach((id,i) => {
-            const name = names[i];
-            join[name] = results[name][id].value;
-        })
-        const selected = select===IDS ? select.bind(db)(join) : selector(select,join);
-        // temporary until selector is patched in lmdb-query
-        if(selected) {
-            if(typeof(select)!=="function") {
-                Object.entries(selected).forEach(([key,value]) => {
-                    if(value && typeof(value)==="object") {
-                        if(Object.keys(value).length===0) {
-                            delete selected[key];
+    for(const classValues of Object.values(results)) {
+        for (const product of cartesianProduct(Object.keys(classValues))) { // get all combinations of instance ids for each class
+            const join = {};
+            product.forEach((id, i) => {
+                const name = names[i];
+                join[name] = results[name][id].value;
+            })
+            const selected = select ? (select === IDS ? select.bind(db)(join) : selector(select, join)) : join;
+            // temporary until selector is patched in lmdb-query
+            if (selected != undefined) {
+                if (typeof (select) !== "function") {
+                    Object.entries(selected).forEach(([key, value]) => {
+                        if (value && typeof (value) === "object") {
+                            if (Object.keys(value).length === 0) {
+                                delete selected[key];
+                            }
                         }
-                    }
-                })
+                    })
+                }
+                yield selected;
             }
-            yield selected;
         }
     }
 }
@@ -173,14 +169,25 @@ function del() {
     return {
         from(...classes) {
             classes = compileClasses(db,...classes);
-            return {
-                async *where(conditions={}) {
-                    for(const join of where(db,conditions,classes,IDS)) {
-                        for(const id of join) {
-                            await db.remove(id);
-                            yield id;
-                        }
+            async function *_where(conditions={}) {
+                for(const join of where(db,conditions,classes,IDS)) {
+                    for(const id of join) {
+                        await db.remove(id);
+                        yield id;
                     }
+                }
+            }
+            return {
+                where(conditions={}) {
+                    const generator = _where(optimize(conditions,classes));
+                    generator.exec = () => {
+                        const items = [];
+                        for (const item of generator) {
+                            items.push(item);
+                        }
+                        return items;
+                    }
+                    return generator;
                 }
             }
         }
@@ -192,41 +199,63 @@ function insert() {
     return {
         into(...classes) {
             classes = compileClasses(db,...classes);
-            return {
-                async * values(values) {
-                    for(let [key,instances] of Object.entries(values)) {
-                        const {cname} = classes[key],
-                            schema = db.getSchema(cname);
-                        if(instances instanceof Array) {
-                            if(!(instances[0] instanceof Array) && schema.create([]) instanceof Array) {
-                                throw new TypeError("Expected array of arrays when inserting Array");
-                            }
-                        } else {
-                            instances = [instances];
+            async function* _values(values) {
+                for(let [key,instances] of Object.entries(values)) {
+                    const {cname} = classes[key],
+                        schema = db.getSchema(cname);
+                    if(instances instanceof Array) {
+                        if(!(instances[0] instanceof Array) && schema.create([]) instanceof Array) {
+                            throw new TypeError("Expected array of arrays when inserting Array");
                         }
-                       for(let instance of instances) {
-                           if(!(instance instanceof schema.ctor)) {
-                               instance = schema.create(instance);
-                           }
-                          yield await db.put(null,instance);
-                       }
+                    } else {
+                        instances = [instances];
                     }
+                    for(let instance of instances) {
+                        if(!(instance instanceof schema.ctor)) {
+                            instance = schema.create(instance);
+                        }
+                        yield await db.put(null,instance);
+                    }
+                }
+            }
+            return {
+                values(values) {
+                    const generator = _values(values);
+                    generator.exec = async () => {
+                        const ids = [];
+                        for await(const id of generator) {
+                            ids.push(id);
+                        }
+                        return ids;
+                    }
+                    return generator;
                 }
             }
         }
     }
 }
 
-function select(select=(value)=>value) {
+function select(select) {
     const db = this;
     return {
         from(...classes) {
             classes = compileClasses(db,...classes);
+            function *_where(conditions={}) {
+                for(const item of where(db,conditions,classes,select)) {
+                    yield item;
+                }
+            }
             return {
-                *where(conditions={}) {
-                   for(const item of where(db,conditions,classes,select)) {
-                       yield item;
-                   }
+                where(conditions={}) {
+                    const generator = _where(optimize(conditions,classes));
+                    generator.exec = () => {
+                        const items = [];
+                        for (const item of generator) {
+                            items.push(item);
+                        }
+                        return items;
+                    }
+                    return generator;
                 }
             }
         }
@@ -238,19 +267,30 @@ function update(...classes) {
     classes = compileClasses(db,...classes);
     return {
         set(patches) {
-            return {
-                async *where(conditions={}) {
-                    for(const join of where(db,conditions,classes,IDS)) {
-                        for(const id of join) {
-                            for(const {cname} of Object.values(classes)) {
-                                const patch = patches[cname];
-                                if(patch && id.startsWith(cname+"@")) {
-                                    await db.patch(id,patch);
-                                }
+            async function *_where(conditions={}) {
+                for(const join of where(db,conditions,classes,IDS)) {
+                    for(const id of join) {
+                        for(const {cname} of Object.values(classes)) {
+                            const patch = patches[cname];
+                            if(patch && id.startsWith(cname+"@")) {
+                                await db.patch(id,patch);
                             }
-                            yield id;
                         }
+                        yield id;
                     }
+                }
+            }
+            return {
+                where(conditions={}) {
+                    const generator = _where(optimize(conditions,classes));
+                    generator.exec = () => {
+                        const items = [];
+                        for (const item of generator) {
+                            items.push(item);
+                        }
+                        return items;
+                    }
+                    return generator;
                 }
             }
         }

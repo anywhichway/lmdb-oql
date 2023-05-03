@@ -1,5 +1,32 @@
 # lmdb-oql
-A high level object query language for indexed LMDB databases using [lmdb-index](https://github.com/anywhichway/lmdb-index).
+A high level object query language for indexed [LMDB](https://www.npmjs.com/package/lmdb) databases using [lmdb-index](https://github.com/anywhichway/lmdb-index).
+
+```javascript
+select({Database:{description:$isDefined()},Provider:{name:$isDefined()}})
+    .from(Database,Performance,Provider)
+    .where({Database:
+            {
+                repository:{ // https://github.com/anywhichway/lmdb-index
+                    Provider:{provides:$includes()}, // provides property array includes Database repository
+                    Performance:{
+                        repository:$eq(), // repository property equals Database repository
+                        primitivePutOpsPerSecond:{$gte:900000}, // yes, nine hundred thousand
+                        primitiveGetOpsPerSecond:{$gte:8000000}, // yes, 8 million
+                        indexedPutOpsPerSecond:{$gte:100000}, // direct object put with indexing
+                        insertOpsPerSecond:{$gte:90000}, // object insertion via lmdb-oql with indexing
+                        selectOpsPerSecond:{$gte:60000}, // object selection via lmdb-old against index
+                    }}
+                }});
+/* On a i7-1165G7 CPU @ 2.80GHz with 16GB RAM running Windows 11 x64
+{
+    Database: {
+        description: "A high performance, high reliability, high durability key-value and object store.",
+    },
+    Provider: {
+        name: "AnyWhichWay, LLC",
+    }
+ */
+```
 
 Easily join and select data across multiple collections/classes using literals, functions, regular expressions, and built-in predicates to match property names or values using the familiar nomenclature `select(what).from(classes).where(conditions)`.
 
@@ -177,9 +204,9 @@ The documentation below just shows how to use the operator with a single argumen
 
 `$isUndefined(value:any)` -  returns item being compared if it is undefined, otherwise `undefined`
 
-`$isNull(value:any)` -  returns item being compared if it is null, otherwise `undefined`
-
 `$isDefined(value:any)` -  returns item being compared if it is defined, otherwise `undefined`
+
+`$isNull(value:any)` -  returns item being compared if it is null, otherwise `undefined`
 
 `$isPrimitive(value:any)` -  returns item being compared if it is a primitive, otherwise `undefined`
 
@@ -227,19 +254,9 @@ The documentation below just shows how to use the operator with a single argumen
 
 `$excludes(value:any)` - returns item being compared if it does not contain value, otherwise `undefined`
 
-`$startsWith(value:string)` - returns item being compared if it starts with value, otherwise `undefined`
-
-`$endsWith(value:string)` - returns item being compared if it ends with value, otherwise `undefined`
-
-`$length(value:number)` - returns item being compared if it has length value, otherwise `undefined`
-
-`$includes(value:any)` - returns item being compared if it contains value, otherwise `undefined`
-
-`$excludes(value:any)` - returns item being compared if it does not contain value, otherwise `undefined`
+`$in(value:array|string)` - returns item being compared if it is in value, otherwise `undefined`
 
 `$nin(value:array|string)` - returns item being compared if it is not in value, otherwise `undefined`
-
-`$in(value:array|string)` - returns item being compared if it is in value, otherwise `undefined`
 
 `$startsWith(value:string)` - returns item being compared if it starts with value, otherwise `undefined`
 
@@ -313,7 +330,7 @@ The `select` method is documented first because it illustrates the full range of
 
 A generator function that selects instances across multiple classes based on a `conditions` object that can contain literals, regular expressions, functions, and joins. The `where` chained function optimizes the `conditions` and processes the most restrictive criteria first.
 
-The returned value will be a class instance if only one class is provided in `from` and plain object if the selection is done across multiple classes unless a `class` is provided to `selector`. A `class` provided to `select` and used in `from` does not have to be declared using `defineSchema`, it will be automatically declared and all top level properties will be indexed. If a schema has already been defined, it will be respected. The objects nested in the `conditions` object (see `where` below) do not have to be instances of their respective classes, it is their data values that matter.
+The yielded value will be a class instance if only one class is provided in `from` and plain object if the selection is done across multiple classes unless a `class` is provided to `selector`. A `class` provided to `select` and used in `from` does not have to be declared using `defineSchema`, it will be automatically declared and all top level properties will be indexed. If a schema has already been defined, it will be respected. The objects nested in the `conditions` object (see `where` below) do not have to be instances of their respective classes, it is their data values that matter.
 
 `selector(result:object)` - If selector is a function it takes an object representing the joined instances matching the `where` object. It can manipulate the object in any way it wishes. It defaults to `(value) => value`
 
@@ -371,11 +388,17 @@ db.select({Person:{name(value,{root}) { delete root.Person;return root.name=valu
 
 Deletes instances of `classes` based on `conditions`. If `conditions` is not provided, all instances of `classes` will be deleted.
 
+All the deletions are done in a single transaction.
+
 Attempting to use `.db.get()` on a deleted object will return `undefined`. The `ids` are just yielded for convenience.
 
 `* async db.insert().into(...classes:class).values(values:object)` - yields ids of inserted objects as an array
 
-Multiple `classes` can be provided. The `values` object should contain top level properties that match the class names or aliases of the `classes` provided. The values of those properties should be objects containing the properties to be inserted,e g. `{Person:{name:"Bill",age:22}}` will insert a `Person` with name "Bill" and age of 22. You can also provide an array of objects to insert multiple objects, e.g. `{Person:[{name"Mary",age:22},{name:"John",age:23}]}` will insert two `Person` objects. If you need to store Arrays as top level database objects, you can use the `Array` class and MUST provide an array with more than one dimension as a value, e.g. `{Array:[[1,2,3],[4,5,6]]}` will insert `Array` objects.
+Multiple `classes` can be provided. If they do not have a schema defined, one will be defined automatically. This is the primary advantage of using `insert` over `put` with a null key.
+
+The `values` object should contain top level properties that match the class names or aliases of the `classes` provided. The values of those properties should be objects containing the properties to be inserted,e g. `{Person:{name:"Bill",age:22}}` will insert a `Person` with name "Bill" and age of 22. You can also provide an array of objects to insert multiple objects, e.g. `{Person:[{name"Mary",age:22},{name:"John",age:23}]}` will insert two `Person` objects. If you need to store Arrays as top level database objects, you can use the `Array` class and MUST provide an array with more than one dimension as a value, e.g. `{Array:[[1,2,3],[4,5,6]]}` will insert `Array` objects.
+
+All the inserts are done in a single transaction.
 
 `* async db.put(key,?data,?options)` - yields id of inserted object
 
@@ -387,6 +410,8 @@ Patches instances of `classes`with `updates` based on `conditions`. If `conditio
 
 Multiple `classes` can be provided. The `updates` object should contain top level properties that match the class names of the `classes` provided. The values of those properties should be objects containing the properties to be updated and their new values,e g. `{Person:{age:22}}` will update all matching instances of `Person` to have the age of 22.
 
+All the updates are done in a single transaction.
+
 Providing property values of `undefined` in `updates will delete the property from instances.
 
 
@@ -396,9 +421,9 @@ Testing conducted with `jest`.
 
 File      | % Stmts | % Branch | % Funcs | % Lines | Uncovered Line #s
 ----------|---------|----------|---------|---------|------------------------
-All files      |   93.33 |    86.61 |   94.44 |   95.16 |
-lmdb-oql      |   90.42 |    69.64 |   86.66 |   93.29 |
-index.js     |   90.42 |    69.64 |   86.66 |   93.29 | 12,15,26,102,112-113,119-120,161,290,299,308
+All files      |   89.11 |    85.51 |   92.17 |    90.1 |
+lmdb-oql      |    84.9 |    67.79 |   82.69 |   86.76 |
+index.js     |    84.9 |    67.79 |   82.69 |   86.76 | ...10-111,117-118,139,156,184-188,252-256,287-291,330,339,348
 lmdb-oql/src  |     100 |    97.67 |     100 |     100 |
 operators.js |     100 |    97.67 |     100 |     100 | 10,167,171-172
 
@@ -409,6 +434,8 @@ During ALPHA and BETA, the following semantic versioning rules apply:
 * The major version will be zero.
 * Breaking changes or feature additions will increment the minor version.
 * Bug fixes and documentation changes will increment the patch version.
+
+2023-05-03 v0.5.2 Documentation enhancements. Fixed issues related to complex joins and nested object matches not returning results. Added some performance testing and did a little optimization. Ensured all `oql` database changes are wrapped in transactions. Unit test coverage has degraded from 96% to 90% due to the addition of some code.
 
 2023-05-02 v0.5.1 Documentation typo fixes.
 

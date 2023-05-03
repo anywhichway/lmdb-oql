@@ -1,6 +1,6 @@
 {
   "name": "lmdb-oql",
-  "version": "0.5.1",
+  "version": "0.5.2",
   "description": "A high level object query language for indexed LMDB databases",
   "type": "module",
   "main": "index.js",
@@ -26,13 +26,14 @@
   },
   "homepage": "https://github.com/anywhichway/lmdb-oql#readme",
   "devDependencies": {
+    "benchmark": "^2.1.4",
     "jest": "^29.5.0",
     "lmdb": "^2.7.11"
   },
   "dependencies": {
+    "@anywhichway/cartesian-product": "^1.0.5",
     "array-set-ops": "^0.4.7",
-    "cxproduct": "^2.1.4",
-    "lmdb-index": "^0.6.0",
+    "lmdb-index": "^0.6.1",
     "lmdb-query": "^1.5.0"
   }
 }
