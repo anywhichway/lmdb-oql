@@ -122,3 +122,15 @@ test("delete",async () => {
     };
     expect([...db.select().from(Person).where({Person:{name:"joe"}})].length).toBe(0);
 })
+test("delete with exec",async () => {
+    const results = await db.delete().from().where().exec();
+    expect(results.length).toBe(0);
+})
+test("update with exec",async () => {
+    const results = await db.update().set().where().exec();
+    expect(results.length).toBe(0);
+})
+test("select with exec",async () => {
+    const results = db.select().from().where().exec();
+    expect(results.length).toBe(0);
+})

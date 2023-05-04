@@ -40,15 +40,29 @@ const optimize = (conditions,classNames) => {
 function compileClasses (db,...classes) {
     return classes.reduce((result,item) => {
         const [cls,name] = Array.isArray(item) ? item : [item],
-            cname = cls.name;
+            cname = cls.name,
+            index = "@@" + cname;
         db.defineSchema(cls);
         result[name||cname] = {
             cname,
             *entries(property,value) {
-                for (const {key} of db.getRangeFromIndex({[property]:value},null,null,{cname})) {
-                    const entry = db.getEntry(key);
-                    if(entry) {
-                        yield {key,value:entry.value}
+                const type = typeof(value);
+                if(type==="string" || type==="number" || type==="boolean") {
+                    for(const {key} of db.getRange([property,value,index])) {
+                        if(key.length===4) {
+                            const id = key[key.length-1],
+                                value = db.get(id);
+                            if(value!==undefined) {
+                                yield {key:id,value}
+                            }
+                        }
+                    }
+                } else {
+                    for(const {key} of db.getRangeFromIndex({[property]:value},null,null,{cname})) {
+                        const value = db.get(key);
+                        if(value!==undefined) {
+                            yield {key,value}
+                        }
                     }
                 }
             }
@@ -64,8 +78,9 @@ function* where(db,conditions={},classes,select,coerce) {
     for(const [leftalias,leftpattern] of Object.entries(conditions)) {
         const cname = classes[leftalias]?.cname,
             idprefix = cname ? cname + "@" : /.*\@/g,
-            index = "@@" + cname;
-        const schema = db.getSchema(cname);
+            index = "@@" + cname,
+            schema = db.getSchema(cname),
+            idkey = schema?.idKey || "#";
         aliases.add(leftalias);
         results[leftalias] ||= {};
         let maxCount = 0;
@@ -73,9 +88,20 @@ function* where(db,conditions={},classes,select,coerce) {
             const type = typeof(test);
             let generator;
             if(test && type==="object") { // get all instances from <cname>@ to one byte higher than <cname>@. relies on index structure created by lmdb-index
-                generator = db.getRangeWhere([idprefix],null,null,{bumpIndex:0,bump(value) { return value + String.fromCharCode(65535)}})
-            } else { // get ids of all instances. relies on index structure created by lmdb-index
-                generator = db.getRangeWhere([leftproperty,test,index])
+                generator = db.getRangeWhere([idprefix],null,null,{bumpIndex:0,bump(value) {
+                    return value.substring(0,value.length-1) + String.fromCharCode(value.charCodeAt(value.length-2)+1) + "@";
+                }})
+            } else if(type==="string") { // get ids of all instances. relies on index structure created by lmdb-index, could use getRangeWhere instead, but less efficient
+                const end = test.substring(0,test.length-1)+String.fromCharCode(test.charCodeAt(test.length-1)+1);
+                generator = db.getRange({start:[leftproperty,test,index],end:[leftproperty,end,index]})
+            } else if(type==="number") { // same as string but with number
+                const end = test===Number.EPSILON ? "a" : test+1;
+                generator = db.getRange({start:[leftproperty,test,index],end:[leftproperty,end,index]});
+            }  else if(type==="boolean") { // same as string but with number
+                const end = test===false ? true : Number.MIN_SAFE_INTEGER;
+                generator = db.getRange({start:[leftproperty,test,index],end:[leftproperty,end,index]});
+            } else { // null, symbol (which have nuanced bumping and are rare), or function
+                generator = db.getRangeWhere([leftproperty,test])
             }
             for(let {key,value} of generator) {
                 // get instances if key is an array, otherwise key is the id and value is the instance
@@ -180,9 +206,9 @@ function del() {
             return {
                 where(conditions={}) {
                     const generator = _where(optimize(conditions,classes));
-                    generator.exec = () => {
+                    generator.exec = async () => {
                         const items = [];
-                        for (const item of generator) {
+                        for await (const item of generator) {
                             items.push(item);
                         }
                         return items;
@@ -283,9 +309,9 @@ function update(...classes) {
             return {
                 where(conditions={}) {
                     const generator = _where(optimize(conditions,classes));
-                    generator.exec = () => {
+                    generator.exec = async () => {
                         const items = [];
-                        for (const item of generator) {
+                        for await(const item of generator) {
                             items.push(item);
                         }
                         return items;

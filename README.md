@@ -1,6 +1,10 @@
 # lmdb-oql
 A high level object query language for indexed [LMDB](https://www.npmjs.com/package/lmdb) databases using [lmdb-index](https://github.com/anywhichway/lmdb-index).
 
+Because it is layered on top of LMDB, `lmdb-oql` is fast and has ACID properties. It can also be schemaless or schema based in the same database.
+
+Easily join and select data across multiple collections/classes using literals, functions, regular expressions, and built-in predicates to match property names or values using the familiar nomenclature `select(what).from(classes).where(conditions)`.
+
 ```javascript
 select({Database:{description:$isDefined()},Provider:{name:$isDefined()}})
     .from(Database,Performance,Provider)
@@ -11,10 +15,10 @@ select({Database:{description:$isDefined()},Provider:{name:$isDefined()}})
                     Performance:{
                         repository:$eq(), // repository property equals Database repository
                         primitivePutOpsPerSecond:{$gte:900000}, // yes, nine hundred thousand
-                        primitiveGetOpsPerSecond:{$gte:8000000}, // yes, 8 million
-                        indexedPutOpsPerSecond:{$gte:100000}, // direct object put with indexing
-                        insertOpsPerSecond:{$gte:90000}, // object insertion via lmdb-oql with indexing
-                        selectOpsPerSecond:{$gte:60000}, // object selection via lmdb-old against index
+                        primitiveGetOpsPerSecond:{$gte:8000000}, // yes, eight million
+                        indexedPutOpsPerSecond:{$gte:90000}, // direct object put with indexing
+                        insertOpsPerSecond:{$gte:85000}, // object insertion via lmdb-oql with indexing
+                        selectOpsPerSecond:{$gte:70000}, // object selection via lmdb-old against index
                     }}
                 }});
 /* On a i7-1165G7 CPU @ 2.80GHz with 16GB RAM running Windows 11 x64
@@ -27,8 +31,6 @@ select({Database:{description:$isDefined()},Provider:{name:$isDefined()}})
     }
  */
 ```
-
-Easily join and select data across multiple collections/classes using literals, functions, regular expressions, and built-in predicates to match property names or values using the familiar nomenclature `select(what).from(classes).where(conditions)`.
 
 This is BETA software. The API is stable and unit tests have over 90% coverage.
 
@@ -434,6 +436,8 @@ During ALPHA and BETA, the following semantic versioning rules apply:
 * The major version will be zero.
 * Breaking changes or feature additions will increment the minor version.
 * Bug fixes and documentation changes will increment the patch version.
+
+2023-05-04 v0.5.3 Documentation enhancements. Fixed issues related to undocumented `.exec()` functions. Improved performance of `select`. Added some unit tests.
 
 2023-05-03 v0.5.2 Documentation enhancements. Fixed issues related to complex joins and nested object matches not returning results. Added some performance testing and did a little optimization. Ensured all `oql` database changes are wrapped in transactions. Unit test coverage has degraded from 96% to 90% due to the addition of some code.
 
