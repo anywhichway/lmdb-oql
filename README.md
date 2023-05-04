@@ -423,9 +423,9 @@ Testing conducted with `jest`.
 
 File      | % Stmts | % Branch | % Funcs | % Lines | Uncovered Line #s
 ----------|---------|----------|---------|---------|------------------------
-All files      |   89.11 |    85.51 |   92.17 |    90.1 |
-lmdb-oql      |    84.9 |    67.79 |   82.69 |   86.76 |
-index.js     |    84.9 |    67.79 |   82.69 |   86.76 | ...10-111,117-118,139,156,184-188,252-256,287-291,330,339,348
+All files      |   90.09 |    84.24 |   94.78 |   91.12 |
+lmdb-oql      |   86.58 |    67.62 |   88.46 |   88.39 |
+index.js     |   86.58 |    67.62 |   88.46 |   88.39 | ...12,125-126,136-137,143-144,165,182,212,280,315,356,365,374
 lmdb-oql/src  |     100 |    97.67 |     100 |     100 |
 operators.js |     100 |    97.67 |     100 |     100 | 10,167,171-172
 
@@ -436,6 +436,8 @@ During ALPHA and BETA, the following semantic versioning rules apply:
 * The major version will be zero.
 * Breaking changes or feature additions will increment the minor version.
 * Bug fixes and documentation changes will increment the patch version.
+
+2023-05-04 v0.5.4 Updated dependencies.
 
 2023-05-04 v0.5.3 Documentation enhancements. Fixed issues related to undocumented `.exec()` functions. Improved performance of `select`. Added some unit tests.
 
