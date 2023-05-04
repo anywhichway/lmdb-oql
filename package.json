@@ -1,6 +1,6 @@
 {
   "name": "lmdb-oql",
-  "version": "0.5.4",
+  "version": "0.5.5",
   "description": "A high level object query language for indexed LMDB databases",
   "type": "module",
   "main": "index.js",

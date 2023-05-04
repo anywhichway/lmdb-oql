@@ -14,11 +14,11 @@ select({Database:{description:$isDefined()},Provider:{name:$isDefined()}})
                     Provider:{provides:$includes()}, // provides property array includes Database repository
                     Performance:{
                         repository:$eq(), // repository property equals Database repository
-                        primitivePutOpsPerSecond:{$gte:900000}, // yes, nine hundred thousand
-                        primitiveGetOpsPerSecond:{$gte:8000000}, // yes, eight million
-                        indexedPutOpsPerSecond:{$gte:90000}, // direct object put with indexing
-                        insertOpsPerSecond:{$gte:85000}, // object insertion via lmdb-oql with indexing
-                        selectOpsPerSecond:{$gte:70000}, // object selection via lmdb-old against index
+                        primitivePutOpsPerSecond:$gte(900000), // yes, nine hundred thousand
+                        primitiveGetOpsPerSecond:$gte(8000000), // yes, eight million
+                        indexedPutOpsPerSecond:$gte(90000), // direct object put with indexing
+                        insertOpsPerSecond:$gte(85000), // object insertion via lmdb-oql with indexing
+                        selectOpsPerSecond:$gte(70000) // object selection via lmdb-oql against index
                     }}
                 }});
 /* On a i7-1165G7 CPU @ 2.80GHz with 16GB RAM running Windows 11 x64
@@ -436,6 +436,8 @@ During ALPHA and BETA, the following semantic versioning rules apply:
 * The major version will be zero.
 * Breaking changes or feature additions will increment the minor version.
 * Bug fixes and documentation changes will increment the patch version.
+
+2023-05-04 v0.5.5 Documentation corrections.
 
 2023-05-04 v0.5.4 Updated dependencies.
 
