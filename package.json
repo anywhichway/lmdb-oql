@@ -1,6 +1,6 @@
 {
   "name": "lmdb-oql",
-  "version": "0.5.5",
+  "version": "0.5.6",
   "description": "A high level object query language for indexed LMDB databases",
   "type": "module",
   "main": "index.js",
@@ -9,7 +9,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/anywhichway/lmdb-select.git"
+    "url": "git+https://github.com/anywhichway/lmdb-oql.git"
   },
   "keywords": [
     "lmdb",
@@ -33,7 +33,7 @@
   "dependencies": {
     "@anywhichway/cartesian-product": "^1.0.5",
     "array-set-ops": "^0.4.7",
-    "lmdb-index": "^0.6.2",
+    "lmdb-index": "^0.7.0",
     "lmdb-query": "^1.5.2"
   }
 }

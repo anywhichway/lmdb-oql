@@ -437,6 +437,8 @@ During ALPHA and BETA, the following semantic versioning rules apply:
 * Breaking changes or feature additions will increment the minor version.
 * Bug fixes and documentation changes will increment the patch version.
 
+2023-05-26 v0.5.6 Corrected respository pointer in package.json.
+
 2023-05-04 v0.5.5 Documentation corrections.
 
 2023-05-04 v0.5.4 Updated dependencies.
