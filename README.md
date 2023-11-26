@@ -14,11 +14,11 @@ select({Database:{description:$isDefined()},Provider:{name:$isDefined()}})
                     Provider:{provides:$includes()}, // provides property array includes Database repository
                     Performance:{
                         repository:$eq(), // repository property equals Database repository
-                        primitivePutOpsPerSecond:$gte(900000), // yes, nine hundred thousand
-                        primitiveGetOpsPerSecond:$gte(8000000), // yes, eight million
-                        indexedPutOpsPerSecond:$gte(90000), // direct object put with indexing
-                        insertOpsPerSecond:$gte(85000), // object insertion via lmdb-oql with indexing
-                        selectOpsPerSecond:$gte(70000) // object selection via lmdb-oql against index
+                        primitivePutOpsPerSecond:$gte(400000), 
+                        primitiveGetOpsPerSecond:$gte(40000000), // yes, forty million (when objects are cached)
+                        indexedPutOpsPerSecond:$gte(175000), // direct object put with indexing
+                        insertOpsPerSecond:$gte(60000), // object insertion via lmdb-oql with indexing
+                        selectOpsPerSecond:$gte(100000) // object selection via lmdb-oql against index
                     }}
                 }});
 /* On a i7-1165G7 CPU @ 2.80GHz with 16GB RAM running Windows 11 x64
@@ -33,6 +33,8 @@ select({Database:{description:$isDefined()},Provider:{name:$isDefined()}})
 ```
 
 This is BETA software. The API is stable and unit tests have over 90% coverage.
+
+Note: Schema are currently used for indexing only. They are not used to validate data. This is a planned feature subsequent to v1.0.0.
 
 # Installation
 
@@ -63,9 +65,9 @@ db.clearSync();
 db.defineSchema(Person);
 db.defineSchema(Employer);
 
-// typically you do no provide an id for a put of a an instance controlled by a schema
+// typically you do not provide an id for a put of a an instance controlled by a schema
 const personId = await db.put(null,new Person({name:"bill",age:21,employer:"ACME"}));
-// but you can if you want to, so long as you at start it with the class name followed by @
+// but you can if you want to, so long as you start it with the class name followed by @
 await db.put("Employer@1",new Employer({name:"ACME",address:"123 Main St."}));
 
 const person = await db.get(personId);
@@ -95,7 +97,7 @@ console.log([...db.select().from(Person).where({Person:{age:$gte(21)}})]);
   }
 ]
  */
-// there are lots of operators, Person has an odd numbered age, could use $odd
+// there are lots of operators, Person has an odd numbered age, could also use $odd
 console.log([...db.select().from(Person).where({Person:{age:$mod([2,1])}})]);
 /*
 [
@@ -111,7 +113,7 @@ console.log([...db.select().from(Person).where({Person:{age:$mod([2,1])}})]);
  */
 
 // joins are performed using the class name as the key
-// this example joins Person to Employer on Person.employer === Employer.name
+// this example joins Person to Employer on Person.employer === Employer.name === "ACME
 console.log([...db.select().from(Person,Employer).where({Person:{employer: {Employer:{name:"ACME"}}}})]);
 /*
 [
@@ -170,7 +172,15 @@ console.log([...db.select(IDS).from([Person, "P"],[Employer,"E"]).where({P:{empl
 
 ## Operators
 
-Operators take either 0 or 1 argument. If on the left side of a join, there should be 0 or 1 argument. Zero argument operators are typically used to test the type of the value being compared, e.g. `$isZIPCode()`. On the right side of a join, providing no argument compares the value to the left. Providing 1 argument creates a right outer join where the right side value satisfies the operator.
+Operators take either 0 or 1 argument. 
+
+Zero argument operators are typically used to test the type of the value being compared, e.g. `$isZIPCode()`. 
+
+On the right side of a join, providing no argument when one is expected compares the value to the left, e.g. `{Person:{employer: {Employer:{name:$eq()}}}}`. 
+
+Providing 1 argument creates a right outer join where the right side value satisfies the operator, e.g. `{Person:{employer: {Employer:{name:$eq("ACME")}}}}`.
+
+Note: `$eq()` is provided for completeness, but using a literal is more efficient, e.g. `{Person:{employer: {Employer:{name:"ACME"}}}}`. Using a function causes a partial index scan.
 
 The documentation below just shows how to use the operator with a single argument. The `item being compared` for each definition below is the value of a property in an object on either the left or right side of a join.
 
@@ -308,7 +318,7 @@ Developers should be familiar with the behavior of [lmdb-index](https://github.c
 
 - The key names in the array `options.indexKeys` will be indexed. If no value is provided, all keys will be indexed. If `options.indexKeys` is an empty array, no keys will be indexed.
 - If the property `options.idKey` is provided, its value will be used for unique ids. If `options.idKey` is not provided, the property `#` on instances will be used for unique ids.
-- If the property `options.keyGenerator` is provided, its value should be a function that returns a unique id. If `options.keyGenerator` is not provided, a v4 UUID will be used.
+- If the property `options.keyGenerator` is provided, its value should be a function that returns a unique id. This will be prefixed by `<className>@`. If `options.keyGenerator` is not provided, a v4 UUID will be used.
 
 The `options` properties and values are inherited by child schema, i.e. if you define them for `Object`, then you do not need to provide them for other classes.
 
@@ -436,6 +446,11 @@ During ALPHA and BETA, the following semantic versioning rules apply:
 * The major version will be zero.
 * Breaking changes or feature additions will increment the minor version.
 * Bug fixes and documentation changes will increment the patch version.
+
+
+2023-11-26 v0.5.8 Updated test suite to ensure operation with child databases.
+
+2023-06-01 v0.5.7 Integrated v1.0.0 release of `lmdb-index`. Removed `lmdb-query` and `array-set-ops` as dependencies.
 
 2023-05-26 v0.5.6 Corrected respository pointer in package.json.
 

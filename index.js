@@ -1,4 +1,4 @@
-import {ANY,selector} from "lmdb-query";
+import {ANY,selector} from "lmdb-index";
 import cartesianProduct from "@anywhichway/cartesian-product";
 import {operators} from "./src/operators.js";
 
@@ -78,7 +78,6 @@ function* where(db,conditions={},classes,select,coerce) {
     for(const [leftalias,leftpattern] of Object.entries(conditions)) {
         const cname = classes[leftalias]?.cname,
             idprefix = cname ? cname + "@" : /.*\@/g,
-            index = "@@" + cname,
             schema = db.getSchema(cname),
             idkey = schema?.idKey || "#";
         aliases.add(leftalias);
@@ -86,31 +85,18 @@ function* where(db,conditions={},classes,select,coerce) {
         let maxCount = 0;
         for(const [leftproperty,test] of Object.entries(leftpattern)) {
             const type = typeof(test);
-            let generator;
-            if(test && type==="object") { // get all instances from <cname>@ to one byte higher than <cname>@. relies on index structure created by lmdb-index
-                generator = db.getRangeWhere([idprefix],null,null,{bumpIndex:0,bump(value) {
-                    return value.substring(0,value.length-1) + String.fromCharCode(value.charCodeAt(value.length-2)+1) + "@";
-                }})
-            } else if(type==="string") { // get ids of all instances. relies on index structure created by lmdb-index, could use getRangeWhere instead, but less efficient
-                const end = test.substring(0,test.length-1)+String.fromCharCode(test.charCodeAt(test.length-1)+1);
-                generator = db.getRange({start:[leftproperty,test,index],end:[leftproperty,end,index]})
-            } else if(type==="number") { // same as string but with number
-                const end = test===Number.EPSILON ? "a" : test+1;
-                generator = db.getRange({start:[leftproperty,test,index],end:[leftproperty,end,index]});
-            }  else if(type==="boolean") { // same as string but with number
-                const end = test===false ? true : Number.MIN_SAFE_INTEGER;
-                generator = db.getRange({start:[leftproperty,test,index],end:[leftproperty,end,index]});
-            } else { // null, symbol (which have nuanced bumping and are rare), or function
-                generator = db.getRangeWhere([leftproperty,test])
+            let generator
+            if(test && type==="object") { // get all instances of <cname>@
+                generator = db.getRange({start:[idprefix]});
+            } else { // get ids of all instances. relies on index structure created by lmdb-index, could use getRangeWhere instead, but less efficient
+                generator = db.getRangeFromIndex({[leftproperty]:test})
             }
-            for(let {key,value} of generator) {
-                // get instances if key is an array, otherwise key is the id and value is the instance
-                let id = key;
-                value = Array.isArray(key) ? db.get(id = key[key.length-1]) : schema.create(value);
+            for(let {value} of generator) {
+                const id = value[schema.idKey];
+                if(!id.startsWith(idprefix) && !(typeof(idPrefix)==="object" && idprefix instanceof RegExp && !id.match(idprefix))) {
+                    break;
+                }
                 let leftvalue = value[leftproperty];
-                if (leftvalue === undefined) {
-                   break;
-                } // skips objects that do not have requested property
                 results[leftalias][id] ||= {count:0,value};
                 maxCount = results[leftalias][id].count += 1;
                 if(test && type==="object") {
@@ -172,18 +158,8 @@ function* where(db,conditions={},classes,select,coerce) {
                 const name = names[i];
                 join[name] = results[name][id].value;
             })
-            const selected = select ? (select === IDS ? select.bind(db)(join) : selector(select, join)) : join;
-            // temporary until selector is patched in lmdb-query
+            const selected = select ? (select === IDS ? select.bind(db)(join) : selector(join,select)) : join;
             if (selected != undefined) {
-                if (typeof (select) !== "function") {
-                    Object.entries(selected).forEach(([key, value]) => {
-                        if (value && typeof (value) === "object") {
-                            if (Object.keys(value).length === 0) {
-                                delete selected[key];
-                            }
-                        }
-                    })
-                }
                 yield selected;
             }
         }
@@ -205,14 +181,17 @@ function del() {
             }
             return {
                 where(conditions={}) {
-                    const generator = _where(optimize(conditions,classes));
-                    generator.exec = async () => {
+                    let generator = _where(optimize(conditions,classes));
+                    const exec = async () => {
                         const items = [];
                         for await (const item of generator) {
                             items.push(item);
                         }
+                        generator = _where(optimize(conditions,classes));
+                        generator.exec = exec;
                         return items;
                     }
+                    generator.exec = exec;
                     return generator;
                 }
             }
@@ -246,14 +225,17 @@ function insert() {
             }
             return {
                 values(values) {
-                    const generator = _values(values);
-                    generator.exec = async () => {
+                    let generator = _values(values);
+                    const exec = async () => {
                         const ids = [];
                         for await(const id of generator) {
                             ids.push(id);
                         }
+                        generator = _values(values);
+                        generator.exec = exec;
                         return ids;
-                    }
+                    };
+                    generator.exec = exec;
                     return generator;
                 }
             }
@@ -273,14 +255,17 @@ function select(select) {
             }
             return {
                 where(conditions={}) {
-                    const generator = _where(optimize(conditions,classes));
-                    generator.exec = () => {
+                    let generator = _where(optimize(conditions,classes));
+                    const exec = () => {
                         const items = [];
                         for (const item of generator) {
                             items.push(item);
                         }
+                        generator = _where(optimize(conditions,classes));
+                        generator.exec = exec;
                         return items;
                     }
+                    generator.exec = exec;
                     return generator;
                 }
             }
@@ -308,14 +293,17 @@ function update(...classes) {
             }
             return {
                 where(conditions={}) {
-                    const generator = _where(optimize(conditions,classes));
-                    generator.exec = async () => {
+                    let generator = _where(optimize(conditions,classes));
+                    const exec = async () => {
                         const items = [];
                         for await(const item of generator) {
                             items.push(item);
                         }
+                        generator = _where(optimize(conditions,classes));
+                        generator.exec = exec;
                         return items;
                     }
+                    generator.exec = exec;
                     return generator;
                 }
             }
